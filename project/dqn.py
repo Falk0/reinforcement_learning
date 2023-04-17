@@ -2,6 +2,7 @@ import random
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device("mps")
@@ -57,6 +58,7 @@ class DQN(nn.Module):
         return x
 
     def act(self, observation, exploit=False):
+        
         """Selects an action with an epsilon-greedy exploration strategy."""
         # TODO: Implement action selection using the Deep Q-network. This function
         #       takes an observation tensor and should return a tensor of actions.
@@ -64,7 +66,13 @@ class DQN(nn.Module):
         #       the input would be a [32, 4] tensor and the output a [32, 1] tensor.
         # TODO: Implement epsilon-greedy exploration.
 
-        raise NotImplmentedError
+        if np.random.rand() > self.eps_start: 
+            action = np.argmax(self.forward(observation)) 
+        else: 
+            action = np.random.choice(self.n_actions) 
+        
+        return action
+        #raise NotImplmentedError
 
 def optimize(dqn, target_dqn, memory, optimizer):
     """This function samples a batch from the replay buffer and optimizes the Q-network."""
@@ -77,12 +85,26 @@ def optimize(dqn, target_dqn, memory, optimizer):
     #       Remember to move them to GPU if it is available, e.g., by using Tensor.to(device).
     #       Note that special care is needed for terminal transitions!
 
+    obs, act, next_obs, reward  = memory.sample(dqn.batch_size)
+    
+    obs.to(device)
+    act.to(device)
+    next_obs.to(device)
+    reward.to(device)
+
+
     # TODO: Compute the current estimates of the Q-values for each state-action
     #       pair (s,a). Here, torch.gather() is useful for selecting the Q-values
     #       corresponding to the chosen actions.
+
+    torch.gather()
     
     # TODO: Compute the Q-value targets. Only do this for non-terminal transitions!
     
+    
+    q_values = None
+    q_value_targets = None
+
     # Compute loss.
     loss = F.mse_loss(q_values.squeeze(), q_value_targets)
 
