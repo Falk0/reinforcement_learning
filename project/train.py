@@ -9,7 +9,7 @@ from evaluate import evaluate_policy
 from dqn import DQN, ReplayMemory, optimize
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("mps")
+device = torch.device("cpu")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env', choices=['CartPole-v1'], default='CartPole-v1')
@@ -40,44 +40,52 @@ if __name__ == '__main__':
     # Initialize optimizer used for training the DQN. We use Adam rather than RMSProp.
     optimizer = torch.optim.Adam(dqn.parameters(), lr=env_config['lr'])
 
+
     # Keep track of best evaluation mean return achieved so far.
     best_mean_return = -float("Inf")
+
+    iteration = 0
+
 
     for episode in range(env_config['n_episodes']):
         terminated = False
         obs, info = env.reset()
-
         obs = preprocess(obs, env=args.env).unsqueeze(0)
-
-        old_obs = obs 
-        
         while not terminated:
-            # TODO: Get action from DQN.
-            action = dqn.act(obs)
-
-            # Act in the true environment.
-            obs, reward, terminated, truncated, info = env.step(action)
-
-            # Preprocess incoming observation.
-            if not terminated:
-                obs = preprocess(obs, env=args.env).unsqueeze(0)
+            iteration += 1
             
+            # TODO: Get action from DQN.
+            action = dqn.act(obs, iteration).item()
+            # Act in the true environment.
+            next_obs, reward, terminated, truncated, info = env.step(action)
+            # Preprocess incoming observation.
+            #if not terminated:
+            next_obs = preprocess(next_obs, env=args.env).unsqueeze(0)
+                
             # TODO: Add the transition to the replay memory. Remember to convert
             #       everything to PyTorch tensors!
-            obs = torch.tensor(obs)
-            action = torch.tensor(action)
-            reward = torch.tensor(reward)
-            old_obs = torch.tensor(old_obs)
 
-            memory.push(old_obs, action, obs, reward)
+            obs = torch.tensor(obs).to(device)
+            next_obs = torch.tensor(next_obs).to(device)
+            action = torch.tensor(action).unsqueeze(0).to(device)
+            reward = torch.tensor(reward).unsqueeze(0).to(device)
+
+            if terminated:
+                terminated_bool = torch.tensor(1).unsqueeze(0)
+            else:
+                terminated_bool = torch.tensor(0).unsqueeze(0)
+
+            memory.push(obs, action, next_obs, reward, terminated_bool)
+            
+            obs = next_obs
 
             # TODO: Run DQN.optimize() every env_config["train_frequency"] steps.
-            if episode % env_config["train_frequency"] == 0:
-                optimize(dqn, target_dqn, memory, optimizer=None)
-
+            if episode % env_config["train_frequency"] == 0:       
+                optimize(dqn, target_dqn, memory, optimizer=optimizer)
+                
             # TODO: Update the target network every env_config["target_update_frequency"] steps.
-            if episode % env_config['target_update_frequency']:
-                optimize(dqn, target_dqn, memory, optimizer=None)
+            if episode % env_config['target_update_frequency'] == 0:
+                target_dqn.load_state_dict(dqn.state_dict())
 
         # Evaluate the current agent.
         if episode % args.evaluate_freq == 0:
@@ -89,7 +97,7 @@ if __name__ == '__main__':
                 best_mean_return = mean_return
 
                 print('Best performance so far! Saving model.')
-                torch.save(dqn, f'models/{args.env}_best.pt')
+                #torch.save(dqn, f'models/{args.env}_best.pt')
         
     # Close environment after training is completed.
     env.close()

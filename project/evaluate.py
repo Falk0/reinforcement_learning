@@ -7,7 +7,7 @@ import config
 from utils import preprocess
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("mps")
+device = torch.device("cpu")
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--env', choices=['CartPole-v1'], default='CartPole-v1')
@@ -27,6 +27,7 @@ ENV_CONFIGS = {
 def evaluate_policy(dqn, env, env_config, args, n_episodes, render=False, verbose=False):
     """Runs {n_episodes} episodes to evaluate current policy."""
     total_return = 0
+    iteration = 0
     for i in range(n_episodes):
         obs, info = env.reset()
         obs = preprocess(obs, env=args.env).unsqueeze(0)
@@ -35,10 +36,13 @@ def evaluate_policy(dqn, env, env_config, args, n_episodes, render=False, verbos
         episode_return = 0
 
         while not terminated:
+
+            iteration += 1
+            
             if render:
                 env.render()
 
-            action = dqn.act(obs, exploit=True).item()
+            action = dqn.act(obs, iteration, exploit=True).item()
             obs, reward, terminated, truncated, info = env.step(action)
             obs = preprocess(obs, env=args.env).unsqueeze(0)
 

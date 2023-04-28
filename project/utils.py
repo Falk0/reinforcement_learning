@@ -1,7 +1,7 @@
 import torch
 
 #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device("mps")
+device = torch.device("cpu")
 
 def preprocess(obs, env):
     """Performs necessary observation preprocessing."""
