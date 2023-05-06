@@ -44,16 +44,23 @@ class DQN(nn.Module):
         self.anneal_length = env_config["anneal_length"]
         self.n_actions = env_config["n_actions"]
 
-        self.fc1 = nn.Linear(4, 256)
-        self.fc2 = nn.Linear(256, self.n_actions)
+        self.conv1 = nn.Conv2d(4, 32, kernel_size=8, stride=4, padding=0)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2, padding=0)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=0)
+        self.fc1 = nn.Linear(3136, 512)
+        self.fc2 = nn.Linear(512, self.n_actions)
 
         self.relu = nn.ReLU()
-        #self.flatten = nn.Flatten()
+        self.flatten = nn.Flatten()
 
     def forward(self, x):
         """Runs the forward pass of the NN depending on architecture."""
-        x = self.relu(self.fc1(x))
-        x = self.fc2(x)
+        x = self.relu(self.conv1(x))
+        x = self.relu(self.conv2(x))
+        x = self.relu(self.conv3(x))
+        x = x.flatten(start_dim=1)
+        x  = self.relu(self.fc1(x))
+        x = self.relu(self.fc2(x))
 
         return x
 
@@ -65,6 +72,7 @@ class DQN(nn.Module):
         #       For example, if the state dimension is 4 and the batch size is 32,
         #       the input would be a [32, 4] tensor and the output a [32, 1] tensor.
         # TODO: Implement epsilon-greedy exploration.
+
         action_tensor = self.forward(observation)
 
         epsilon = self.eps_end + (self.eps_start - self.eps_end) * np.exp(-1.0 * iteration / self.anneal_length)
@@ -75,8 +83,7 @@ class DQN(nn.Module):
         else: 
             action = np.random.choice(self.n_actions) 
             action = torch.tensor(action)
-            #print('explore')
-        
+        #TODO change so action is 2 or 3
         return action
         #raise NotImplmentedError
 
@@ -94,16 +101,15 @@ def optimize(dqn, target_dqn, memory, optimizer):
     sample  = memory.sample(dqn.batch_size)
     
     obs, act, next_obs, reward, terminated = sample
-    
 
     concatenated_terminated = torch.cat(terminated, dim=0)
     concatenated_terminated = concatenated_terminated.to(device)
-    concatenated_obs = torch.cat(obs, dim=0)
-    concatenated_obs = concatenated_obs.to(device)
+    concatenated_obs = torch.stack(obs, dim=0)
+    concatenated_obs = concatenated_obs.squeeze(dim=1).to(device)
     concatenated_act = torch.cat(act, dim=0)
     concatenated_act = concatenated_act.to(device)
-    concatenated_next_obs = torch.cat(next_obs, dim=0)
-    concatenated_next_obs = concatenated_next_obs.to(device)
+    concatenated_next_obs = torch.stack(next_obs, dim=0)
+    concatenated_next_obs = concatenated_next_obs.squeeze(dim=1).to(device)
     concatenated_reward = torch.cat(reward, dim=0)
     concatenated_reward = concatenated_reward.to(device)
 
@@ -111,7 +117,7 @@ def optimize(dqn, target_dqn, memory, optimizer):
     #       pair (s,a). Here, torch.gather() is useful for selecting the Q-values
     #       corresponding to the chosen actions.
     
-    
+
     q_values = dqn.forward(concatenated_obs)
     Q_values = torch.gather(q_values, dim=1, index=concatenated_act.unsqueeze(1))
 
