@@ -2,7 +2,7 @@ import argparse
 
 import gymnasium as gym
 import torch
-
+import matplotlib.pyplot as plt
 import config
 from utils import preprocess
 from evaluate import evaluate_policy
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     best_mean_return = -float("Inf")
 
     iteration = 0
-
+    training_history = []
 
     for episode in range(env_config['n_episodes']):
         terminated = False
@@ -91,7 +91,7 @@ if __name__ == '__main__':
         if episode % args.evaluate_freq == 0:
             mean_return = evaluate_policy(dqn, env, env_config, args, n_episodes=args.evaluation_episodes)
             print(f'Episode {episode+1}/{env_config["n_episodes"]}: {mean_return}')
-
+            training_history.append(mean_return)
             # Save current agent if it has the best performance so far.
             if mean_return >= best_mean_return:
                 best_mean_return = mean_return
@@ -101,3 +101,12 @@ if __name__ == '__main__':
         
     # Close environment after training is completed.
     env.close()
+
+plt.plot(training_history)
+plt.grid()
+plt.title('Training history - CartPole-v1')
+plt.xlabel('Evaluation episode')
+plt.ylabel('Mean return')
+plt.ylim(0, 450)
+plt.savefig('/Users/falk/Documents/python_projects/Reinforcement_learning/project/figures/CartPole_history_5.png',dpi=300)
+plt.show()
